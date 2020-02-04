@@ -1,15 +1,82 @@
 # Order?
 
-# 1. Revisions: why revisions? how revisions work?
+# 0. Setup clone repo cd ci_cd
+#    Setup Artifactory
+
+# BASIC CONCEPTS FOR CI/CD
+
+# 1. Revisions: why are we going to use revisions? how revisions work?
 #               full reference of a Conan package
-#               what affects the recipe revision?
-#               what affects the package revision?
+#               what affects the recipe revision? checksum of the recipe manifest: conafile.py + exports_sources + exports etc...
+#               what affects the package revision? checksum of the package manifest (contents): conaninfo.txt + headers for consuming + binaries...
+#               create a package A/0.1 
+#               show that with disabled revisions changes in the conanfile.py don't create a new package
+#               enable revisions: new packages are created when modify the conanfile.py
+# cd revisions
+# conan config set general.revisions_enabled=False
+# conan create PkgA --build missing # the package will be created
+# conan create PkgA --build missing # the exists, is not created
+# echo "#comment" >> PkgA/conanfile.py
+# conan create PkgA --build missing # revisions disabled -> package is not affected, nothing is created
+# conan config set general.revisions_enabled=True 
+# conan create PkgA --build missing
+# echo "#comment" >> PkgA/conanfile.py
+# conan create PkgA --build missing # revisions enabled -> new package revision is created each time the recipe is modified
+
+# THERE CAN BE ONLY ONE REVISION IN THE LOCAL CACHE
+# INSPECT ALL REVISIONS IN ARTIFACTORY:
+# Upload to artifactory, list the revisions
+# How to install an specific revision in the cache
 
 # 2. Package ID modes: 
+#
+#               using at least recipe_revision_mode: compromise
+#               show how the upstream revision affects the downstream
+#               App/0.1 -> B/0.1 -> A/0.1
+#
+# PkgA is still created
+# cd package_id_modes
+# conan config set general.default_package_id_mode=recipe_revision_mode
+# we could have an example where you create all the packages: App, B, A
+# and the check the packageID of the App, then A is modified and you can see
+# how a new PackageID for App is generated
+# cd revisions 
+# conan create PkgA # the PkgA is created
+# you get a packageID
+# echo "#comment" >> PkgA/conanfile.py
+# conan create PkgA # you create a new revision but you get the same packageID
+# cd .. && cd package_id_modes
+# conan create PkgB 
+# you get a package ID
+# create a new revision of PkgA: echo "#comment" >> PkgA/conanfile.py && conan create PkgA
+# the new revision of PkgA will affect the package_id of PkgB
+# conan create PkgB && conan search PkgB/0.1@ now we have to package_id's for PkgB
+
 
 # 3. Lockfiles: locking dependencies in a lockfile 
+# create a graph lock of the application
+# export all packages
+# cd lockfiles
+# create the graph lock of the application
+# conan graph lock App/0.1@ --lockfile lockfiles
+# get the build order from the lockfile
+# conan graph build-order . --json=bo.json --build=missing
+# conan install PkgA/0.1@ --build PkgA/0.1 --lockfile=.
+# conan install PkgB/0.1@ --build PkgB/0.1 --lockfile=.
+# conan install App/0.1@ --build App/0.1 --lockfile=.
 
 # Installing specific revisions in a graph
+# $ mkdir revisions && cd revisions
+# $ conan remove hello* -f # remove previous
+# $ conan new hello/0.1 -s
+# $ conan create . user/testing
+# echo "#comment" >> conanfile.py && conan create . user/testing && conan upload hello* --all -r=artifactory --confirm
+# echo "#comment" >> conanfile.py && conan create . user/testing && conan upload hello* --all -r=artifactory --confirm
+# echo "#comment" >> conanfile.py && conan create . user/testing && conan upload hello* --all -r=artifactory --confirm
+# echo "#comment" >> conanfile.py && conan create . user/testing && conan upload hello* --all -r=artifactory --confirm
+# conan search hello/0.1@user/testing -r artifactory --revisions
+# conan install hello/0.1@user/testing#c50815b8c65fc94e5e6cc1b67be05e45 --update
+
 
 # 4. Build info: generating build information from lockfiles 
 #                publishing build info to artifactory
